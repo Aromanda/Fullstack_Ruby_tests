@@ -36,8 +36,10 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "return 422 error for invalid order" do
-    post "/api/order/#{@order.id}/status", params: { status: "pending" }
-    assert_response 422
+    invalid_status = "invalid"
+    post "/api/order/#{@order.id}/status", params: { status: invalid_status }
+    assert_response :unprocessable_entity
+    assert_equal "pending", @order.reload.order_status.name
   end
 
 end

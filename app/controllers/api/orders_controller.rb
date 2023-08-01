@@ -30,7 +30,7 @@ module Api
       @order.order_status = new_status
 
       if @order.save
-        # If the order status is successfully updated, return the updated order as JSON
+        # If the order status is successfully updated, return the updated order as JSON with a status code of 200 (OK)
         render json: @order
       else
         # If there are any validation errors or issues with updating the order status, return the errors as JSON with a status code of 422 (unprocessable entity).
