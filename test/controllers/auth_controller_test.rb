@@ -1,3 +1,5 @@
+require 'test_helper'
+
 class ApiControllerTest < ActionDispatch::IntegrationTest
 
   test "login route exists and is a POST route" do

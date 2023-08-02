@@ -1,3 +1,5 @@
+require 'test_helper'
+
 class ProductsControllerTest < ActionDispatch::IntegrationTest
 
   test "products route exists and is a GET route" do

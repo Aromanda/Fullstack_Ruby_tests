@@ -1,3 +1,5 @@
+require 'test_helper'
+
 class RestaurantsControllerTest < ActionDispatch::IntegrationTest
 
   test "restaurants route exists and is a GET route" do
