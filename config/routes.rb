@@ -12,7 +12,6 @@ Rails.application.routes.draw do
     get "orders", to: "orders#index"
     post "orders", to: "orders#create"
     post "order/:id/status", to: "orders#set_status"
-    post "/api/orders/:id/status", to: "orders#status"
     
   end
 end
