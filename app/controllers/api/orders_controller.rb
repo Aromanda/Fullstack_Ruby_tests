@@ -5,37 +5,38 @@ module Api
 
     # GET /api/orders
     def index
-      # Fetch all orders from the database
-      @orders = Order.all
+      user_type = params[:type]
+      user_id = params[:id]
 
-      # Return the list of orders as JSON
-      render json: @orders
+      if user_type && user_id
+        valid_user_types = ["customer", "restaurant", "courier"]
+        if valid_user_types.include?(user_type)
+          @orders = Order.where("#{user_type}_id": user_id)
+          render json: @orders
+        else
+          render json: { error: "Invalid user type" }, status: :unprocessable_entity
+        end
+      else
+        render json: { error: "Both 'user type' and 'id' parameters are required" }, status: :bad_request
+      end
     end
 
     # POST /api/order/:id/status
     def set_status
-      @order = Order.find(params[:id])
-      new_status_name = params[:status]
+      status = params[:status]
+      id = params[:id]
 
-      # Find the OrderStatus record with the given name
-      new_status = OrderStatus.find_by(name: new_status_name)
-
-      unless new_status
-        # If the status name is invalid, return a 422 status code with an error message
-        render json: { error: "Invalid status name" }, status: :unprocessable_entity
-        return
+      unless status.present? && status.in?(["pending", "in progress", "delivered"])
+        return render_422_error("Invalid status")
       end
 
-      # Update the order status
-      @order.order_status = new_status
-
-      if @order.save
-        # If the order status is successfully updated, return the updated order as JSON with a status code of 200 (OK)
-        render json: @order
-      else
-        # If there are any validation errors or issues with updating the order status, return the errors as JSON with a status code of 422 (unprocessable entity).
-        render json: { errors: @order.errors.full_messages }, status: :unprocessable_entity
+      order = Order.find_by(id: id)
+      unless order
+        return render_422_error("Invalid order")
       end
+
+      order.update(order_status_id: OrderStatus.find_by(name: status)&.id)
+      render json: { status: order.order_status.name }, status: :ok
     end
   end
 end
