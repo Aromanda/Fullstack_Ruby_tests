@@ -5,21 +5,153 @@ module Api
 
     # GET /api/orders
     def index
-      user_type = params[:type]
-      user_id = params[:id]
+      type = params[:type]
+      id = params[:id]
 
-      if user_type && user_id
-        valid_user_types = ["customer", "restaurant", "courier"]
-        if valid_user_types.include?(user_type)
-          @orders = Order.where("#{user_type}_id": user_id)
-          render json: @orders
+      unless type && id
+        return render json: { error: "Both 'user type' and 'id' parameters are required" }, status: :bad_request
+      end
+
+      if type != 'customer' && type != 'restaurant' && type != 'courier'
+        return render json: { error: "Invalid user type" }, status: :unprocessable_entity
+      end
+
+      orders = Order.user_orders(type, id)
+
+      if orders.empty?
+        return render json: [], status: :ok
+      end
+
+      render json: orders.as_json(include: { customer: { only: [:id, :name, :address] },
+                                             restaurant: { only: [:id, :name, :address] },
+                                             courier: { only: [:id, :name] },
+                                             order_status: { only: [:id, :name] },
+                                             product_orders: { only: [:id, :product_id, :product_quantity, :product_unit_cost] } },
+                                  methods: :total_cost), status: :ok
+    end
+    
+    # # GET /api/orders
+    # def index
+    #   user_type = params[:type]
+    #   user_id = params[:id]
+
+    #   if user_type && user_id
+    #     valid_user_types = ["customer", "restaurant", "courier"]
+    #     if valid_user_types.include?(user_type)
+    #       @orders = Order.where("#{user_type}_id": user_id)
+    #       render json: @orders
+    #     else
+    #       render json: { error: "Invalid user type" }, status: :unprocessable_entity
+    #     end
+    #   else
+    #     render json: { error: "Both 'user type' and 'id' parameters are required" }, status: :bad_request
+    #   end
+    # end
+
+    # # POST /api/orders
+    # def create
+    #   restaurant_id = params[:restaurant_id]
+    #   customer_id = params[:customer_id]
+    #   products = params[:products]
+
+    #   if restaurant_id.present? && customer_id.present? && products.present?
+    #     restaurant = Restaurant.find_by(id: restaurant_id)
+    #     customer = Customer.find_by(id: customer_id)
+
+    #     if restaurant && customer
+    #       order = Order.new(
+    #         restaurant: restaurant,
+    #         customer: customer,
+    #         order_status: OrderStatus.find_by(name: "pending")
+    #       )
+
+    #       products.each do |product_data|
+    #         product = Product.find_by(id: product_data[:id])
+    #         if product
+    #           order.product_orders.build(
+    #             product: product,
+    #             product_quantity: product_data[:quantity],
+    #             product_unit_cost: product.cost
+    #           )
+    #         else
+    #           render json: { error: "Invalid product ID" }, status: :unprocessable_entity
+    #           return
+    #         end
+    #       end
+
+    #       if order.save
+    #         render json: {
+    #           restaurant_id: order.restaurant_id,
+    #           customer_id: order.customer_id,
+    #           products: order.product_orders.map do |product_order|
+    #             {
+    #               id: product_order.product_id,
+    #               quantity: product_order.product_quantity
+    #             }
+    #           end
+    #         }, status: :created
+    #       else
+    #         render json: { error: order.errors.full_messages.join(", ") }, status: :unprocessable_entity
+    #       end
+    #     else
+    #       render json: { error: "Invalid restaurant or customer ID" }, status: :unprocessable_entity
+    #     end
+    #   else
+    #     render json: { error: "Restaurant ID, customer ID, and products are required" }, status: :bad_request
+    #   end
+    # end
+
+    # POST /api/orders
+    def create
+      # Extract the parameters from the request
+      restaurant_id = params[:restaurant_id]
+      customer_id = params[:customer_id]
+      products = params[:products]
+
+      # Check if all required parameters are present
+      if restaurant_id.present? && customer_id.present? && products.present?
+        # Find the Restaurant and Customer
+        restaurant = Restaurant.find_by(id: restaurant_id)
+        customer = Customer.find_by(id: customer_id)
+
+        # Check if valid Restaurant and Customer are found
+        if restaurant && customer
+          # Create a new Order with the provided data
+          order = Order.new(
+            restaurant: restaurant,
+            customer: customer,
+            order_status: OrderStatus.find_by(name: "pending")
+          )
+
+          # Create ProductOrders for each product in the request
+          products.each do |product_data|
+            product = Product.find_by(id: product_data[:id])
+            if product
+              order.save  # Save the order first
+              order.product_orders.create(
+                product: product,
+                product_quantity: product_data[:quantity],
+                product_unit_cost: product.cost
+              )
+            else
+              render json: { error: "Invalid product ID" }, status: :unprocessable_entity
+              return
+            end
+          end
+          
+
+          # Save the Order and ProductOrders
+          if order.save
+            render json: order, status: :created
+          else
+            render json: { error: order.errors.full_messages.join(", ") }, status: :unprocessable_entity
+          end
         else
-          render json: { error: "Invalid user type" }, status: :unprocessable_entity
+          render json: { error: "Invalid restaurant or customer ID" }, status: :unprocessable_entity
         end
       else
-        render json: { error: "Both 'user type' and 'id' parameters are required" }, status: :bad_request
+        render json: { error: "Restaurant ID, customer ID, and products are required" }, status: :bad_request
       end
-    end
 
     # POST /api/order/:id/status
     def set_status
@@ -37,6 +169,7 @@ module Api
 
       order.update(order_status_id: OrderStatus.find_by(name: status)&.id)
       render json: { status: order.order_status.name }, status: :ok
+      end
     end
   end
 end
