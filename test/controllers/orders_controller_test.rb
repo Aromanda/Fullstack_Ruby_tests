@@ -1,6 +1,6 @@
-require 'test_helper'
+# require 'test_helper'
 
-class OrdersControllerTest < ActionDispatch::IntegrationTest
+# class OrdersControllerTest < ActionDispatch::IntegrationTest
 
 #   def setup
 #     user = User.create!(name: "User 1", email: "test@test.com", password: "password")
@@ -80,6 +80,10 @@ class OrdersControllerTest < ActionDispatch::IntegrationTest
 #   end
 
 # end
+
+require 'test_helper'
+
+class OrdersControllerTest < ActionDispatch::IntegrationTest
 
 def setup
   @user = User.create(name: "Tester", email: "test@test.com", password: "password")
