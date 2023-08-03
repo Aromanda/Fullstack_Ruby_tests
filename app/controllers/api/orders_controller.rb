@@ -12,7 +12,7 @@ module Api
         return render json: { error: "Both 'user type' and 'id' parameters are required" }, status: :bad_request
       end
 
-      if type != 'customer' && type != 'restaurant' && type != 'courier'
+      unless %w[customer restaurant courier].include?(type)
         return render json: { error: "Invalid user type" }, status: :unprocessable_entity
       end
 
@@ -22,12 +22,15 @@ module Api
         return render json: [], status: :ok
       end
 
-      render json: orders.as_json(include: { customer: { only: [:id, :name, :address] },
-                                             restaurant: { only: [:id, :name, :address] },
-                                             courier: { only: [:id, :name] },
-                                             order_status: { only: [:id, :name] },
-                                             product_orders: { only: [:id, :product_id, :product_quantity, :product_unit_cost] } },
-                                  methods: :total_cost), status: :ok
+      render json: orders.as_json(include: {
+                                   customer: { only: [:id, :name, :address] },
+                                   restaurant: { only: [:id, :name, :address] },
+                                   courier: { only: [:id, :name] },
+                                   order_status: { only: [:id, :name] },
+                                   product_orders: { only: [:id, :product_id, :product_quantity, :product_unit_cost] }
+                                 },
+                                 methods: :total_cost),
+             status: :ok
     end
 
     # POST /api/orders
@@ -67,11 +70,16 @@ module Api
               return
             end
           end
-          
 
           # Save the Order and ProductOrders
           if order.save
-            render json: order, status: :created
+            response_body = {
+              restaurant_id: order.restaurant_id,
+              customer_id: order.customer_id,
+              products: products
+            }
+
+            render json: response_body, status: :created
           else
             render json: { error: order.errors.full_messages.join(", ") }, status: :unprocessable_entity
           end
@@ -81,8 +89,9 @@ module Api
       else
         render json: { error: "Restaurant ID, customer ID, and products are required" }, status: :bad_request
       end
+    end
 
-    # POST /api/order/:id/status
+    # POST /api/orders/:id/status
     def set_status
       status = params[:status]
       id = params[:id]
@@ -98,7 +107,12 @@ module Api
 
       order.update(order_status_id: OrderStatus.find_by(name: status)&.id)
       render json: { status: order.order_status.name }, status: :ok
-      end
+    end
+
+    private
+
+    def render_422_error(message)
+      render json: { error: message }, status: :unprocessable_entity
     end
   end
 end
