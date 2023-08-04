@@ -11,7 +11,6 @@ Rails.application.routes.draw do
     get "products", to: "products#index"
     get "orders", to: "orders#index"
     post "orders", to: "orders#create"
-    post "order/:id/status", to: "orders#set_status"
-    
+    post "orders/:id/status", to: "orders#set_status"
   end
 end
