@@ -1,7 +1,6 @@
 module Api
   class OrdersController < ActionController::Base
     skip_before_action :verify_authenticity_token
-    include ApiHelper
 
     # GET /api/orders
     def index
@@ -22,40 +21,26 @@ module Api
         return render json: [], status: :ok
       end
 
-      render json: orders.as_json(include: {
-                                   customer: { only: [:id, :name, :address] },
-                                   restaurant: { only: [:id, :name, :address] },
-                                   courier: { only: [:id, :name] },
-                                   order_status: { only: [:id, :name] },
-                                   product_orders: { only: [:id, :product_id, :product_quantity, :product_unit_cost] }
-                                 },
-                                 methods: :total_cost),
-             status: :ok
+      render json: orders.map { |order| format_order(order) }, status: :ok
     end
 
     # POST /api/orders
     def create
-      # Extract the parameters from the request
       restaurant_id = params[:restaurant_id]
       customer_id = params[:customer_id]
       products = params[:products]
 
-      # Check if all required parameters are present
       if restaurant_id.present? && customer_id.present? && products.present?
-        # Find the Restaurant and Customer
         restaurant = Restaurant.find_by(id: restaurant_id)
         customer = Customer.find_by(id: customer_id)
 
-        # Check if valid Restaurant and Customer are found
         if restaurant && customer
-          # Create a new Order with the provided data
           order = Order.new(
             restaurant: restaurant,
             customer: customer,
             order_status: OrderStatus.find_by(name: "pending")
           )
 
-          # Create ProductOrders for each product in the request
           products.each do |product_data|
             product = Product.find_by(id: product_data[:id])
             if product
@@ -71,7 +56,6 @@ module Api
             end
           end
 
-          # Save the Order and ProductOrders
           if order.save
             response_body = {
               restaurant_id: order.restaurant_id,
@@ -111,8 +95,33 @@ module Api
 
     private
 
+    def format_order(order)
+      {
+        id: order.id,
+        customer_id: order.customer.id,
+        customer_name: order.customer.user&.name, # Assuming a 'user' association with 'name'
+        customer_address: order.customer.address,
+        restaurant_id: order.restaurant.id,
+        restaurant_name: order.restaurant.name, # Adjust based on your actual schema
+        restaurant_address: order.restaurant.address,
+        courier_id: order.courier&.id,
+        courier_name: order.courier&.user&.name, # Assuming a 'user' association with 'name'
+        status: order.order_status.name,
+        products: order.product_orders.map do |product_order|
+          {
+            product_id: product_order.product_id,
+            product_name: product_order.product.name,
+            quantity: product_order.product_quantity,
+            unit_cost: product_order.product_unit_cost,
+            total_cost: product_order.product_unit_cost * product_order.product_quantity
+          }
+        end,
+        total_cost: order.total_cost # Define this method in Order model if needed
+      }
+    end
+
     def render_422_error(message)
       render json: { error: message }, status: :unprocessable_entity
     end
   end
-end
+end 
